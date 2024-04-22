@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 
+from calculations import *
+from util import *
+
 st.set_page_config(layout='wide')
 
 # Selectbox and Radio Constants
@@ -16,6 +19,7 @@ st.write('# Solution Calculator')
 ingredients_container = st.container(border=True)
 ingredients_container.write('### Ingredients')
 
+
 # Create an empty ingredients dataframe on first page load
 if 'ingredients' not in st.session_state:
     ingredients = pd.DataFrame({
@@ -28,51 +32,6 @@ if 'ingredients' not in st.session_state:
 
 ingredients_container.dataframe(st.session_state.ingredients)
 
-# Functions for performing actions
-def add_ingredient(row):
-    # Don't allow dupes???
-    st.session_state.ingredients = pd.concat([st.session_state.ingredients, row], ignore_index=True)
-
-
-def get_ingredient_index():
-    return st.session_state.ingredients.index[st.session_state.ingredients['Ingredient'] == st.session_state.ingredient].tolist()
-
-def remove_ingredient():
-    st.session_state.ingredients.drop(index=get_ingredient_index(), inplace=True)
-
-# Function to reset ingredient inputs
-def reset_inputs():
-    st.session_state['ingredient'] = ''
-    st.session_state['state'] = 'Liquid'
-    st.session_state['stock'] = 0.000
-    st.session_state['stock_units'] = CONCENTRATION_UNITS[0]
-    st.session_state['final_conc'] = 0.000
-
-    st.session_state.ingredients.reset_index(drop=True)
-    st.session_state['action'] = 'Add'
-
-
-# Function to update ingredients dataframe
-def update():
-    if st.session_state['action'] == 'Remove':
-        remove_ingredient()
-    else:
-        row = pd.DataFrame({
-            'Ingredient': [st.session_state.ingredient],
-            'State': [st.session_state.state],
-            'Stock': [st.session_state.stock],
-            'Stock_Units': [st.session_state.stock_unit],
-            'Final_Concentration': [st.session_state.final_conc],
-            'Final_Concentration_Units': [st.session_state.final_conc_unit]
-        })
-
-        if st.session_state['action'] == 'Add':
-            add_ingredient(row)
-        else:
-            remove_ingredient()
-            add_ingredient(row)
-    
-    reset_inputs()
 
 # Container for adding ingredients
 with st.container(border=True):
@@ -128,84 +87,15 @@ with st.container(border=True):
         with fields[3]:
             st.selectbox('Units', unit_slice, key='stock_unit', disabled=disable_unit)
 
-    st.button('Update', on_click=update)
+    st.button('Update', on_click=update, kwargs=dict(session_state=st.session_state))
 
-
-
-# Conversions
-def to_molar(c):
-    return c / 1000
-
-def to_mL(v):
-    return v * 1000
-
-def to_L(v):
-    return v / 1000
-
-def percent(p):
-    return p / 100
-
-# def to_grams(mg):
-#     return mg * 1000
-
-# Calculations
-def dilution(c1, c2, v2):
-    return c2 * v2 / c1
-
-def solution(fw, c2, v2):
-    return fw * c2 * v2
-
-
-# Calculations
-def calculate_ingredient(i):
-    v1, v1_units = 1.0, 'mL'
-    c1, c2, v2 = i.Stock, i.Final_Concentration, st.session_state.total_volume
-    
-    if i.Stock_Units == 'mM':
-        c1 = to_molar(c1)
-
-    if i.Stock_Units == '%':
-        c1 = percent(c1)
-            
-    if i.Final_Concentration_Units == 'mM':
-        c2 = to_molar(c2)
-    
-    if i.Final_Concentration_Units == '%':
-        c2 = percent(c2)
-
-    if st.session_state.total_volume_units == 'mL':
-        v2 = to_L(v2)
-
-
-    if i.State == 'Liquid':
-        v1 = to_mL(dilution(c1, c2, v2))
-    else:
-        v1_units = 'g'
-
-        if i.Final_Concentration_Units == '%':
-            c1 = 1000
-
-        v1 = solution(c1, c2, v2)
-    
-    return pd.DataFrame({'Ingredient': [i.Ingredient], 'Amount': [v1], 'Amount_Units': [v1_units]})
-
-def calculate_recipe():
-    recipe = pd.DataFrame({'Ingredient': [], 'Amount': [], 'Amount_Units': []})
-
-    for ingredient in st.session_state.ingredients.itertuples():
-        recipe = pd.concat([recipe, calculate_ingredient(ingredient)], ignore_index=True)
-
-    st.session_state.recipe = recipe
-
-
-# def reset_total_volume():
-#     st.session_state['total_volume'] = 0.000
 
 # Container to display recipe
 with st.container(border=True):
     st.write('### Recipe')
     if 'recipe' in st.session_state:
         st.dataframe(st.session_state.recipe)
+
 
 # Container for entering total volume and generating recipe
 with st.container():
@@ -217,4 +107,4 @@ with st.container():
     with final_volume_fields[1]:
         st.selectbox('Units', VOLUME_UNITS, key='total_volume_units')
 
-    st.button('Calculate', on_click=calculate_recipe, type='primary')
+    st.button('Calculate', on_click=calculate_recipe, kwargs=dict(session_state=st.session_state), type='primary')
