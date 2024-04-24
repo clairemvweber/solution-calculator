@@ -24,7 +24,7 @@ def reset_inputs(session_state):
 
 def update(session_state):
     if session_state['action'] == 'Remove':
-        remove_ingredient()
+        remove_ingredient(session_state)
     else:
         row = pd.DataFrame({
             'Ingredient': [session_state.ingredient],
@@ -38,7 +38,7 @@ def update(session_state):
         if session_state['action'] == 'Add':
             add_ingredient(row, session_state)
         else:
-            remove_ingredient()
+            remove_ingredient(session_state)
             add_ingredient(row, session_state)
     
     reset_inputs(session_state)
